@@ -23,7 +23,7 @@ class WOF_Spinner
 
     public static function render_modal()
     {
-        include WOF_PLUGIN_PATH . 'templates/modal.php';
+        include WOF_PLUGIN_PATH . 'templates/frontend/modal.php';
     }
 }
 

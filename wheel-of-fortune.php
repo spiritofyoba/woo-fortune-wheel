@@ -18,7 +18,9 @@ add_action('plugins_loaded', function () {
 
     define('WOF_PLUGIN_PATH', plugin_dir_path(__FILE__));
     define('WOF_PLUGIN_URL', plugin_dir_url(__FILE__));
+    define('WOF_PLUGIN_TEXTDOMAIN', 'woo-fortune-wheel');
 
+    require_once WOF_PLUGIN_PATH . 'includes/helpers.php';
     require_once WOF_PLUGIN_PATH . 'includes/class-database.php';
     require_once WOF_PLUGIN_PATH . 'includes/class-spinner.php';
     require_once WOF_PLUGIN_PATH . 'includes/class-ajax-handler.php';

@@ -15,8 +15,9 @@ const paths = {
     },
     bootstrap: {
         css: 'node_modules/bootstrap/dist/css/bootstrap.min.css',
-        js: 'node_modules/bootstrap/dist/js/bootstrap.bundle.min.js'
-    }
+        js: 'node_modules/bootstrap/dist/js/bootstrap.bundle.js'
+    },
+    popper: 'node_modules/@popperjs/core/dist/umd/popper.min.js'
 };
 
 function styles() {
@@ -43,6 +44,11 @@ function bootstrapJs() {
         .pipe(dest(paths.scripts.dest));
 }
 
+function popperJs() {
+    return src(paths.popper)
+        .pipe(dest(paths.scripts.dest));
+}
+
 function watchFiles() {
     watch(paths.styles.src, styles);
     watch(paths.scripts.src, scripts);
@@ -52,11 +58,12 @@ exports.styles = styles;
 exports.scripts = scripts;
 exports.bootstrapCss = bootstrapCss;
 exports.bootstrapJs = bootstrapJs;
+exports.popperJs = popperJs;
 exports.watch = watchFiles;
 
 exports.default = series(
-    parallel(styles, scripts, bootstrapCss, bootstrapJs),
+    parallel(styles, scripts, bootstrapCss, bootstrapJs, popperJs),
     watchFiles
 );
 
-exports.build = parallel(styles, scripts, bootstrapCss, bootstrapJs);
+exports.build = parallel(styles, scripts, bootstrapCss, bootstrapJs, popperJs);
