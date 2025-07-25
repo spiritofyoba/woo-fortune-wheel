@@ -29,31 +29,30 @@ class WOF_Ajax_Handler
             wp_send_json_error(['message' => 'Ви вже брали участь.']);
         }
 
-        $result = 'Подарунок';
 
-//        $prizes = [
-//            '10% знижка',
-//            'Подарунок',
-//            'Безкоштовна доставка',
-//            'Спробуйте ще',
-//            '5% знижка',
-//            'Спробуйте ще',
-//            '15% знижка',
-//            'Спробуйте ще'
-//        ];
-//
-//        $weights = [0.2, 0.15, 0.15, 0.1, 0.1, 0.1, 0.1, 0.1];
-//        $rand = mt_rand() / mt_getrandmax();
-//        $cumulative = 0;
-//        $result = 'Спробуйте ще';
-//
-//        foreach ($weights as $i => $weight) {
-//            $cumulative += $weight;
-//            if ($rand <= $cumulative) {
-//                $result = $prizes[$i];
-//                break;
-//            }
-//        }
+        $prizes = [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+        ];
+
+        $weights = [0.2, 0.15, 0.15, 0.1, 0.1, 0.1, 0.1, 0.1];
+        $rand = mt_rand() / mt_getrandmax();
+        $cumulative = 0;
+        $result = 'Спробуйте ще';
+
+        foreach ($weights as $i => $weight) {
+            $cumulative += $weight;
+            if ($rand <= $cumulative) {
+                $result = $prizes[$i];
+                break;
+            }
+        }
 //
 //        $wpdb->insert($table, [
 //            'phone' => $phone,
@@ -62,7 +61,7 @@ class WOF_Ajax_Handler
 //            'created_at' => current_time('mysql'),
 //        ]);
 
-        WOF_Cart_Integration::apply_reward($result);
+//        WOF_Cart_Integration::apply_reward($result);
 
         wp_send_json_success(['result' => $result]);
     }
