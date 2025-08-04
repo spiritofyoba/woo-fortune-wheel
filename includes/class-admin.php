@@ -2,19 +2,35 @@
 
 defined('ABSPATH') || exit;
 
-class WOF_Admin {
-
-    function __construct() {
-        add_action('admin_menu', [self::class, 'register_admin_menu']);
-        add_action('admin_enqueue_scripts', [self::class, 'enqueue_assets']);
-        add_action('admin_init', [self::class, 'register_settings']);  // <-- register settings here
+/**
+ * Admin class for the Wheel of Fortune plugin.
+ * Handles menu registration, settings page rendering, and asset loading.
+ */
+class WOF_Admin
+{
+    public function __construct()
+    {
+        add_action('admin_menu', [self::class, 'registerAdminMenu']);
+        add_action('admin_enqueue_scripts', [self::class, 'enqueueAssets']);
+        add_action('admin_init', [self::class, 'registerSettings']);
     }
 
-    public static function register_settings() {
+    /**
+     * Registers a WordPress setting to store plugin configuration as JSON.
+     */
+    public static function registerSettings(): void
+    {
         register_setting('wof_settings_group', 'wof_settings_json');
     }
 
-    public static function enqueue_assets($hook, $allowed_hooks = []) {
+    /**
+     * Enqueues required styles and scripts for the admin interface.
+     *
+     * @param string $hook Current admin page hook.
+     * @param array $allowed_hooks Hooks where assets should be loaded.
+     */
+    public static function enqueueAssets($hook, $allowed_hooks = []): void
+    {
         if (!in_array($hook, $allowed_hooks, true)) {
             return;
         }
@@ -27,17 +43,21 @@ class WOF_Admin {
 
         wp_localize_script('wof-admin-js', 'WOF_JS', [
             'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce'    => wp_create_nonce('wof_spin_nonce'),
+            'nonce' => wp_create_nonce('wof_spin_nonce'),
         ]);
     }
 
-    public static function register_admin_menu() {
-        $main_hook = add_menu_page(
+    /**
+     * Registers admin menu and submenu pages for the plugin.
+     */
+    public static function registerAdminMenu(): void
+    {
+        $mainHook = add_menu_page(
             'Колесо фортуни',
             'Колесо фортуни',
             'manage_options',
             'wof-submissions',
-            [self::class, 'render_submissions_page'],
+            [self::class, 'renderSubmissionsPage'],
             'dashicons-image-filter',
             56
         );
@@ -48,50 +68,61 @@ class WOF_Admin {
             __('Усі ліди', WOF_PLUGIN_TEXTDOMAIN),
             'manage_options',
             'wof-submissions',
-            [self::class, 'render_submissions_page']
+            [self::class, 'renderSubmissionsPage']
         );
 
-        $settings_hook = add_submenu_page(
+        $settingsHook = add_submenu_page(
             'wof-submissions',
             'Plugin Settings',
             __('Налаштування', WOF_PLUGIN_TEXTDOMAIN),
             'manage_options',
             'wof-settings',
-            [self::class, 'render_settings_page']
+            [self::class, 'renderSettingsPage']
         );
 
-        // Enqueue assets only on these hooks
-        add_action('admin_enqueue_scripts', function ($hook) use ($main_hook, $settings_hook) {
-            self::enqueue_assets($hook, [$main_hook, $settings_hook]);
+        add_action('admin_enqueue_scripts', function ($hook) use ($mainHook, $settingsHook) {
+            self::enqueueAssets($hook, [$mainHook, $settingsHook]);
         });
     }
 
-
-    public static function render_submissions_page() {
+    /**
+     * Renders the submissions admin page.
+     */
+    public static function renderSubmissionsPage(): void
+    {
         load_template(WOF_PLUGIN_PATH . 'templates/admin/admin-submissions.php', true);
     }
 
-    public static function render_settings_page() {
+    /**
+     * Handles saving plugin settings and renders the settings page.
+     */
+    public static function renderSettingsPage(): void
+    {
         if (
             $_SERVER['REQUEST_METHOD'] === 'POST' &&
             isset($_POST['wof_settings_nonce']) &&
             wp_verify_nonce($_POST['wof_settings_nonce'], 'wof_save_settings') &&
             current_user_can('manage_options')
         ) {
-
-            $wheel_items = isset($_POST['wheel_items']) ? sanitize_nested_array($_POST['wheel_items']) : [];
+            $wheelItems = isset($_POST['wheel_items']) ? sanitize_nested_array($_POST['wheel_items']) : [];
+            $secondaryTitles = isset($_POST['secondary_titles']) ? sanitize_nested_array($_POST['secondary_titles']) : [];
+            $mainTitle = isset($_POST['main_title']) ? sanitize_text_field($_POST['main_title']) : '';
+            $resultText = isset($_POST['result_text']) ? sanitize_text_field($_POST['result_text']) : '';
+            $enablePlugin = isset($_POST['enable_plugin']) ? true : false;
 
             $data = [
-                'wheel_items' => $wheel_items,
+                'wheel_items' => $wheelItems,
+                'main_title' => $mainTitle,
+                'secondary_titles' => $secondaryTitles,
+                'enable_plugin' => $enablePlugin,
+                'result_text' => $resultText
             ];
 
             update_option('wof_settings_json', wp_json_encode($data));
             add_settings_error('wof_messages', 'wof_message', 'Settings saved.', 'updated');
         }
 
-        $saved = get_option('wof_settings_json', '{}');
-        $settings = json_decode($saved, true);
-
+        $settings = json_decode(get_option('wof_settings_json', '{}'), true);
         set_query_var('wof_settings', $settings);
 
         load_template(WOF_PLUGIN_PATH . 'templates/admin/admin-settings.php', false);

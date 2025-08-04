@@ -22,10 +22,14 @@ add_action('plugins_loaded', function () {
 
     require_once WOF_PLUGIN_PATH . 'includes/helpers.php';
     require_once WOF_PLUGIN_PATH . 'includes/class-database.php';
+    require_once WOF_PLUGIN_PATH . 'includes/class-admin.php';
+
+    if (!enable_disable_plugin()) return;
+
     require_once WOF_PLUGIN_PATH . 'includes/class-spinner.php';
     require_once WOF_PLUGIN_PATH . 'includes/class-ajax-handler.php';
     require_once WOF_PLUGIN_PATH . 'includes/class-cart-integration.php';
-    require_once WOF_PLUGIN_PATH . 'includes/class-admin.php';
+
 
     register_activation_hook(__FILE__, ['WOF_Database', 'init']);
 });

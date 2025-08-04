@@ -2,55 +2,54 @@
 
 defined('ABSPATH') || exit;
 
+/**
+ * Handles the integration between the Wheel of Fortune rewards and WooCommerce Cart.
+ */
 class WOF_Cart_Integration
 {
+    /**
+     * Apply the reward to the WooCommerce cart based on the result type.
+     *
+     * If the result is "discount", a temporary 10% discount coupon is created and applied.
+     * If the result is something else, a gift product is added to the cart.
+     *
+     * @param object $result The reward result object, e.g., (object)['type' => 'gift', 'coupon' => 123]
+     * @return void
+     */
     public static function apply_reward($result)
     {
         if (!class_exists('WC_Cart') || !WC()->cart) {
             return;
         }
 
-        if ($result === '10% знижка') {
-            $coupon_code = 'wheel_discount_' . wp_generate_password(4, false);
-            $new_coupon_id = wp_insert_post([
-                'post_title' => $coupon_code,
-                'post_status' => 'publish',
-                'post_type' => 'shop_coupon',
-                'post_author' => 1,
-            ]);
+        if ($result->type === 'discount') {
+            WC()->cart->apply_coupon($result->coupon);
+        } else {
+            $variation_id = (int) $result->coupon;
+            $variation = wc_get_product($variation_id);
 
-            update_post_meta($new_coupon_id, 'discount_type', 'percent');
-            update_post_meta($new_coupon_id, 'coupon_amount', 10);
-            update_post_meta($new_coupon_id, 'usage_limit', 1);
+            if (!$variation || !$variation->is_type('variation')) {
+                return;
+            }
 
-            WC()->cart->apply_coupon($coupon_code);
+            $parent_id = $variation->get_parent_id();
+            $variation_attributes = $variation->get_attributes(); // already formatted
 
-        } elseif ($result === 'Подарунок') {
-            $variable_product_id = 4332;
-            $variation_id = 4333;
-
-            WC()->cart->add_to_cart(
-                $variable_product_id,
+            $cart_key = WC()->cart->add_to_cart(
+                $parent_id,
                 1,
                 $variation_id,
-                [],
+                $variation_attributes,
                 ['wheel_gift' => true]
             );
-        } elseif ($result === 'Безкоштовна доставка') {
-            $coupon_code = 'wheel_free_shipping_' . wp_generate_password(4, false);
-            $new_coupon_id = wp_insert_post([
-                'post_title' => $coupon_code,
-                'post_status' => 'publish',
-                'post_type' => 'shop_coupon',
-                'post_author' => 1,
-            ]);
 
-            update_post_meta($new_coupon_id, 'discount_type', 'fixed_cart');
-            update_post_meta($new_coupon_id, 'coupon_amount', 0);
-            update_post_meta($new_coupon_id, 'free_shipping', 'yes');
-            update_post_meta($new_coupon_id, 'usage_limit', 1);
+            if ($cart_key && isset(WC()->cart->cart_contents[$cart_key])) {
+                WC()->cart->cart_contents[$cart_key]['data']->set_price(0);
+            }
 
-            WC()->cart->apply_coupon($coupon_code);
+            WC()->cart->calculate_totals();
+
+            return $cart_key;
         }
     }
 }

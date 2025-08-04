@@ -1,14 +1,19 @@
 class WofSettings {
-    constructor(addBtnId, wrapperId) {
-        this.addBtn = document.getElementById(addBtnId);
+    constructor(wrapperId, addSelectBtnId, addTitleBtnId) {
         this.wrapper = document.getElementById(wrapperId);
+        this.addSelectBtn = document.getElementById(addSelectBtnId);
+        this.addTitleBtn = document.getElementById(addTitleBtnId);
 
         this.init();
     }
 
     init() {
-        if (this.addBtn) {
-            this.addBtn.addEventListener('click', this.handleAddClick.bind(this));
+        if (this.addSelectBtn) {
+            this.addSelectBtn.addEventListener('click', this.addSelectRow.bind(this));
+        }
+
+        if (this.addTitleBtn) {
+            this.addTitleBtn.addEventListener('click', this.addTitleRow.bind(this));
         }
 
         if (this.wrapper) {
@@ -16,31 +21,81 @@ class WofSettings {
         }
 
         this.initTooltips();
+        this.toggleDeleteButtons(); // handle initial state
     }
 
     initTooltips() {
         const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.forEach(tooltipTriggerEl => {
-            new bootstrap.Tooltip(tooltipTriggerEl);
-        });
+        tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+    }
+
+    handleWrapperClick(e) {
+        const deleteBtn = e.target.closest('.delete-row');
+        if (!deleteBtn) return;
+
+        e.preventDefault();
+
+        const row = deleteBtn.closest('.select-container') || deleteBtn.closest('.titles-container');
+        if (!row) return;
+
+        const rows = row.parentElement.querySelectorAll(`.${row.classList[0]}`);
+        if (rows.length <= 1) return;
+
+        row.remove();
+
+        this.recalculateIndexes();
+        this.toggleDeleteButtons();
     }
 
     recalculateIndexes() {
-        const containers = this.wrapper.querySelectorAll('.select-container');
-        containers.forEach((container, index) => {
+        // Reindex select-container
+        const selectRows = this.wrapper.querySelectorAll('.select-container');
+        selectRows.forEach((container, index) => {
             container.setAttribute('data-index', index);
 
-            container.querySelectorAll('select').forEach(select => {
-                const name = select.getAttribute('name');
+            container.querySelectorAll('[name]').forEach(field => {
+                const name = field.getAttribute('name');
                 if (name) {
-                    const newName = name.replace(/wheel_items\[\d+]/, `wheel_items[${index}]`);
-                    select.setAttribute('name', newName);
+                    const newName = name.replace(/\[\d+]/, `[${index}]`);
+                    field.setAttribute('name', newName);
+                }
+            });
+        });
+
+        // Reindex titles-container (if needed)
+        const titleRows = this.wrapper.querySelectorAll('.titles-container');
+        titleRows.forEach((container, index) => {
+            container.setAttribute('data-index', index);
+
+            container.querySelectorAll('[name]').forEach(field => {
+                const name = field.getAttribute('name');
+                if (name) {
+                    const newName = name.replace(/\[\d+]/, `[${index}]`);
+                    field.setAttribute('name', newName);
+                }
+            });
+        });
+
+        this.toggleDeleteButtons();
+    }
+
+    toggleDeleteButtons() {
+        const groups = ['select-container', 'titles-container'];
+
+        groups.forEach(selector => {
+            const rows = this.wrapper.querySelectorAll(`.${selector}`);
+            const shouldHide = rows.length <= 1;
+
+            rows.forEach(row => {
+                const btn = row.querySelector('.delete-row');
+                if (btn) {
+                    btn.style.display = shouldHide ? 'none' : '';
                 }
             });
         });
     }
 
-    handleAddClick(e) {
+    addSelectRow(e) {
         e.preventDefault();
 
         const containers = this.wrapper.querySelectorAll('.select-container');
@@ -52,22 +107,14 @@ class WofSettings {
         const clone = lastContainer.cloneNode(true);
         clone.setAttribute('data-index', newIndex);
 
-        clone.querySelectorAll('select').forEach(select => {
-            select.value = '';
-            const name = select.getAttribute('name');
-            if (name) {
-                const newName = name.replace(/\[\d+]/, `[${newIndex}]`);
-                select.setAttribute('name', newName);
-            }
-        });
-
         clone.querySelectorAll('input').forEach(input => {
             const type = input.type.toLowerCase();
             if (['text', 'email', 'number', 'tel', 'url', 'search', 'password'].includes(type)) {
                 input.value = '';
-            } else if (type === 'checkbox' || type === 'radio') {
+            } else if (['checkbox', 'radio'].includes(type)) {
                 input.checked = false;
             }
+
             const name = input.getAttribute('name');
             if (name) {
                 const newName = name.replace(/\[\d+]/, `[${newIndex}]`);
@@ -78,26 +125,43 @@ class WofSettings {
         lastContainer.insertAdjacentElement('afterend', clone);
 
         this.initTooltips();
+        this.recalculateIndexes();
     }
 
-
-    handleWrapperClick(e) {
-        const deleteBtn = e.target.closest('.delete-row');
-        if (!deleteBtn) return;
-
+    addTitleRow(e) {
         e.preventDefault();
 
-        const row = deleteBtn.closest('.select-container');
-        if (row) {
-            row.remove();
-            this.recalculateIndexes();
+        const containers = this.wrapper.querySelectorAll('.titles-container');
+        const lastContainer = containers[containers.length - 1];
+        const newIndex = containers.length;
 
-            // Re-initialize tooltips after removing elements
-            this.initTooltips();
-        }
+        if (!lastContainer) return;
+
+        const clone = lastContainer.cloneNode(true);
+        clone.setAttribute('data-index', newIndex);
+
+        clone.querySelectorAll('input').forEach(input => {
+            const type = input.type.toLowerCase();
+            if (['text', 'email', 'number', 'tel', 'url', 'search', 'password'].includes(type)) {
+                input.value = '';
+            } else if (['checkbox', 'radio'].includes(type)) {
+                input.checked = false;
+            }
+
+            const name = input.getAttribute('name');
+            if (name) {
+                const newName = name.replace(/\[\d+]/, `[${newIndex}]`);
+                input.setAttribute('name', newName);
+            }
+        });
+
+        lastContainer.insertAdjacentElement('afterend', clone);
+
+        this.initTooltips();
+        this.recalculateIndexes();
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    new WofSettings('add-select-btn', 'wof-wrapper');
+    new WofSettings('wof-wrapper', 'add-select-btn', 'add-title-btn');
 });

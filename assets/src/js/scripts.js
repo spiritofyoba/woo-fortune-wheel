@@ -4,27 +4,32 @@ class WheelOfFortune {
         this.ctx = this.canvas.getContext('2d');
         this.center = this.canvas.width / 2;
         this.radius = this.center;
-
         this.sections = options.sections || [];
         this.ajaxUrl = options.ajaxUrl;
         this.nonce = options.nonce;
         this.resultEl = options.resultEl; // element to show result messages
         this.phone = options.phone || '';
-
         this.anglePerSection = (2 * Math.PI) / this.sections.length;
         this.currentAngle = 0;
         this.spinning = false;
-
         this.continuousSpinId = null;
-
         this.pointerDistance = 50;
         this.pointerSize = 28;
+        this.modal = document.getElementById('wof-modal');
+        this.delay = 1000;
 
         this.init();
     }
 
     init() {
-        this.drawWheel();
+        this.resizeCanvas();
+
+        window.addEventListener('resize', () => this.resizeCanvas());
+
+        window.addEventListener('DOMContentLoaded', () => {
+            this.showAfterDelay();
+            this.bindClose();
+        });
 
         if (this.spinBtn) {
             this.spinBtn.addEventListener('click', () => this.handleSpin());
@@ -36,7 +41,28 @@ class WheelOfFortune {
         this.spinBtn.addEventListener('click', () => this.handleSpin());
     }
 
+    showAfterDelay() {
+        if (this.getCookie('wof_last_win')) {
+            return;
+        }
+
+        setTimeout(() => {
+            this.modal.classList.remove('wof-hidden');
+        }, this.delay);
+    }
+
+    bindClose() {
+        const closeBtn = this.modal.querySelector('.wheel-form .close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.modal.classList.add('wof-hidden');
+            });
+        }
+    }
+
     drawWheel() {
+        const isMobile = window.innerWidth <= 768;
+        console.log(isMobile);
         const ctx = this.ctx;
         const center = this.center;
         const radius = this.radius;
@@ -72,9 +98,20 @@ class WheelOfFortune {
 
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.font = "700 12.71px Rubik, sans-serif";
-            ctx.fillStyle = (i % 2 === 0) ? 'rgba(104, 91, 199, 1)' : '#fff';
-            ctx.fillText(section.label.toUpperCase(), radius / 2, 0);
+            console.log(section)
+            if (section.type === 'discount') {
+                ctx.font = isMobile ? "bold 22px Rubik, sans-serif" : "bold 28px Rubik, sans-serif";
+                ctx.fillStyle = (i % 2 === 0) ? 'rgba(104, 91, 199, 1)' : '#fff';
+            } else {
+                ctx.font = isMobile ? "700 10px Rubik, sans-serif" : "700 12.71px Rubik, sans-serif";
+                ctx.fillStyle = (i % 2 === 0) ? 'rgba(104, 91, 199, 1)' : '#fff';
+            }
+
+            const maxTextWidth = radius - 100 // 100px padding right, 15px left
+            const x = !isMobile ? radius - 90 + 15 : radius - 90 + 25;            // Shift to center of padded area
+            const y = 0;
+            this.wrapText(ctx, section.label.toUpperCase(), x, y, maxTextWidth, 14);
+
             ctx.restore();
         });
 
@@ -99,41 +136,124 @@ class WheelOfFortune {
         ctx.fill();
     }
 
+    resizeCanvas() {
+        const parent = this.canvas.parentElement;
+
+        if (!parent) return;
+
+        // Resize canvas based on parent width (e.g., 100% width)
+        const size = Math.min(parent.offsetWidth, window.innerHeight * 0.5);
+        this.canvas.width = size;
+        this.canvas.height = size;
+
+        this.center = size / 2;
+        this.radius = this.center;
+        this.anglePerSection = (2 * Math.PI) / this.sections.length;
+
+        this.drawWheel();
+    }
+
+    wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+        const words = text.split(' ');
+        let line = '';
+        let lines = [];
+
+        for (let n = 0; n < words.length; n++) {
+            const testLine = line + words[n] + ' ';
+            const metrics = ctx.measureText(testLine);
+            const testWidth = metrics.width;
+            if (testWidth > maxWidth && n > 0) {
+                lines.push(line);
+                line = words[n] + ' ';
+            } else {
+                line = testLine;
+            }
+        }
+        lines.push(line);
+
+        const totalHeight = lines.length * lineHeight;
+        const offsetY = y - totalHeight / 2 + lineHeight / 2;
+
+        for (let i = 0; i < lines.length; i++) {
+            ctx.fillText(lines[i].trim(), x, offsetY + i * lineHeight);
+        }
+    }
+
+    setPhoneInput(inputEl) {
+        this.phoneInput = inputEl;
+
+        if (typeof Inputmask !== 'undefined') {
+            Inputmask({mask: '(099)9999999'}).mask(this.phoneInput);
+        }
+
+        this.phoneInput.addEventListener('input', () => {
+            if (this.resultEl) this.resultEl.textContent = '';
+        });
+    }
+
+    getPhoneValue() {
+        return this.phoneInput?.value?.replace(/\D/g, '') || '';
+    }
+
+    isValidPhone(phone) {
+        return /^0\d{9}$/.test(phone);
+    }
+
+    setCookie(name, value, days) {
+        const expires = new Date(Date.now() + days * 864e5).toUTCString();
+        document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/';
+    }
+
+    getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
     handleSpin() {
         if (this.spinning) return;
+
+        const phone = this.getPhoneValue();
+        if (!this.isValidPhone(phone)) {
+            if (this.resultEl) this.resultEl.textContent = 'Введіть коректний номер у форматі 0991234567';
+            return;
+        }
+
+        if (this.resultEl) this.resultEl.textContent = 'Зачекайте...';
+
         this.spinning = true;
 
-        // Start continuous spin animation
-        this.startContinuousSpin();
-
-        // Send backend request to get prize ID
         fetch(this.ajaxUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
             body: new URLSearchParams({
                 action: 'wof_spin',
                 nonce: this.nonce,
-                phone: this.phone,
+                phone: phone,
             }),
         })
             .then(response => response.json())
             .then(data => {
-                if (!data.success) throw new Error(data.data?.message || 'Spin failed');
+
+                if (!data.success) throw new Error(data.data?.message || 'Серверна помилка.');
+                if (this.resultEl) this.resultEl.textContent = '';
 
                 const backendId = data.data.result;
                 const targetIndex = this.sections.findIndex(s => s.id === backendId);
-                if (targetIndex === -1) throw new Error('Invalid prize id');
+                if (targetIndex === -1) throw new Error('Некоректний ID призу.');
 
-                // Stop continuous spin and animate final spin
-                this.stopContinuousSpin();
                 this.animateFinalSpin(targetIndex);
+
+                const self = this;
+                setTimeout(function () {
+                    if (data.data.html) {
+                        self.modal.innerHTML = data.data.html;
+                    }
+                }, 6000);
             })
             .catch(err => {
-                this.stopContinuousSpin();
                 this.spinning = false;
-                if (this.resultEl) this.resultEl.textContent = err.message || 'Error occurred during spin.';
+                if (this.resultEl) this.resultEl.textContent = err.message || 'Помилка при обертанні.';
             });
     }
 
@@ -148,6 +268,10 @@ class WheelOfFortune {
             this.continuousSpinId = requestAnimationFrame(spin);
         };
         spin();
+    }
+
+    setPrizeProductPrice() {
+
     }
 
     stopContinuousSpin() {
@@ -184,7 +308,12 @@ class WheelOfFortune {
                 this.currentAngle %= 2 * Math.PI;
                 this.spinning = false;
 
-                alert(`🎉 You won: ${this.sections[targetIndex].label}`);
+                console.log(`🎉 You won: ${this.sections[targetIndex].label}`);
+
+                this.setCookie('wof_last_win', JSON.stringify({
+                    prize: this.sections[targetIndex].label,
+                    date: new Date().toISOString()
+                }), 7);
 
                 if (typeof Cart === 'function') {
                     const cartInstance = new Cart();
@@ -202,21 +331,21 @@ class WheelOfFortune {
 
 const wheel = new WheelOfFortune({
     canvas: document.getElementById('wheel'),
-    sections: [
-        {id: 0, label: 'Prize 0'},
-        {id: 1, label: 'Prize 1'},
-        {id: 2, label: 'Prize 2'},
-        {id: 3, label: 'Prize 3'},
-        {id: 4, label: 'Prize 4'},
-        {id: 5, label: 'Prize 5'},
-        {id: 6, label: 'Prize 6'},
-        {id: 7, label: 'Prize 7'},
-    ],
-    ajaxUrl: WOF_JS.ajax_url,
+    sections: WOF_JS.wheelItems.map((item, index) => ({
+        id: index,
+        label: item.text,
+        type: item.type
+    })),
+    ajaxUrl: WOF_JS.ajaxUrl,
     nonce: WOF_JS.nonce,
-    phone: '+380991231250',
     resultEl: document.getElementById('result'),
 });
 
-const spinBtn = document.getElementById('spinBtn');
-wheel.setSpinButton(spinBtn);
+
+document.getElementById('wheel-phone').addEventListener('input', () => {
+    const resultEl = document.getElementById('result');
+    if (resultEl) resultEl.textContent = '';
+});
+
+wheel.setSpinButton(document.getElementById('spinBtn'));
+wheel.setPhoneInput(document.getElementById('wheel-phone'));

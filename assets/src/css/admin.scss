@@ -1,3 +1,56 @@
 body {
   background-color: #f0f0f1 !important;
 }
+
+#wof-wrapper {
+  .titles-container {
+    .delete-row {
+      position: absolute;
+      right: 15px;
+      z-index: 10;
+    }
+  }
+
+  #switch[type=checkbox]{
+    height: 0;
+    width: 0;
+    visibility: hidden;
+    display: none;
+  }
+
+  .switch-label {
+    cursor: pointer;
+    text-indent: -9999px;
+    width: 50px;
+    height: 25px;
+    background: grey;
+    display: block;
+    border-radius: 100px;
+    position: relative;
+  }
+
+  .switch-label:after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 15px;
+    height: 15px;
+    background: #fff;
+    border-radius: 90px;
+    transition: 0.3s;
+  }
+
+  #switch:checked + .switch-label {
+    background: #0d6efd;
+  }
+
+  #switch:checked + .switch-label:after {
+    left: calc(100% - 5px);
+    transform: translateX(-100%);
+  }
+
+  .switch-label:active:after {
+    width: 25px;
+  }
+}
